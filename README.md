@@ -5,13 +5,25 @@ A real-time network intrusion detection console for Windows. A single native
 multiclass detector, and a SOC-style dashboard — from one program, with no Kafka,
 no web server, and no manual setup between parts.
 
+![IDS Live Console detecting a live ESP32 port scan](docs/dashboard.gif)
+
+*Live capture on the left, the committee's verdict on the right: an ESP32 port scan against the lab machine takes the risk score from green to ~96% and fills the alert feed in seconds (source IP column redacted).*
+
 This is the **live/serving** side of the project. The models it runs, and all the
 training and evaluation behind them, live in the companion repository:
 [**IDS-Multiclass-Training**](https://github.com/BurakCANKURT/IDS-Multiclass-Training).
 
 This started as my bachelor's thesis. The training repo answers *"can the models
-detect attacks they have never seen?"*; this repo answers *"do they still work on
-real, live traffic, in real time, on one machine?"*
+detect attacks they have never seen?"*; this project began with the next question —
+out of today's real traffic and real attacks, how much can that model actually catch?
+
+Building it taught me things I had only read about before: how newer technologies —
+new protocols and new ways of moving data — behave differently from the old ones and
+leave a different footprint on the wire. A clear example is QUIC, the modern transport
+that is replacing the classic TCP+TLS stack: it runs as high-rate UDP, and because the
+models were trained on older, pre-QUIC traffic they do not recognize it — the
+out-of-distribution gate flags it as UNKNOWN rather than forcing it into a benign or
+attack label, which is exactly the safe behavior it was designed for.
 
 Output classes: `BENIGN, DDoS, DoS, FTP-Patator, PortScan, SSH-Patator, WebAttack`,
 from 41 streaming flow features computed incrementally as packets arrive.
@@ -100,10 +112,6 @@ produced.
 | `multiclass_training/` | the live detector + optional Mongo logging (models go here) |
 | `live_fire_test/` | attack simulators for your own lab + post-test analysis |
 | `docs/` | known limitations and live-fire findings |
-
-## A note on the code
-
-The READMEs and the documents under `docs/` are in English. Inline code comments are largely in Turkish — this was a solo thesis project and translating every comment was not worth the risk of changing working code. The logic each comment explains is described in English in the READMEs and `docs/`.
 
 ## How this was built
 
