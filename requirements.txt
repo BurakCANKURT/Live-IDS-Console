@@ -1,0 +1,23 @@
+# Runtime dependencies for the live detector + capture pipeline (Python 3.11).
+# The IDS console (ids_dashboard.exe) spawns these scripts as child processes.
+# Pinned versions match the IDS-Multiclass-Training repo the models come from.
+numpy==1.26.4
+pandas==2.3.3
+h5py==3.15.1
+joblib==1.5.2
+scikit-learn==1.5.2
+tensorflow==2.15.0
+onnxruntime==1.26.0
+
+# Optional: offline/forensic logging of predictions to MongoDB.
+# The live UI does NOT require this; the detector runs fine without a Mongo server.
+pymongo
+
+# Only for the live-fire test harness under live_fire_test/ (attack simulators
+# that drive the user's OWN lab machine) and real-world capture helpers:
+requests          # esp32/host web-attack generators + mini_vuln_target.py
+pyftpdlib         # local test FTP server for the FTP-Patator scenario
+
+# External tools (not pip packages):
+#   - tshark + mergecap from Wireshark (live capture + pcap merge)
+#   - Npcap (Windows packet driver tshark builds on)

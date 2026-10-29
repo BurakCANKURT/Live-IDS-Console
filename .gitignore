@@ -1,0 +1,42 @@
+# Build output
+console/build/
+console/build*/
+*.exe
+*.obj
+*.o
+
+# Runtime output of the console
+console/logs/
+console/capture_ring/
+console/imgui.ini
+captures/
+*.log
+
+# Captures and local databases (large, may contain private traffic)
+*.pcap
+*.pcapng
+*.db
+live_fire_test/phases_*.json
+
+# Trained models come from the IDS-Multiclass-Training release, not git
+*.joblib
+*.onnx
+*.keras
+*.npz
+
+# ESP32 lab credentials: copy secrets.example.h -> secrets.h locally
+secrets.h
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+
+# Editors / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store

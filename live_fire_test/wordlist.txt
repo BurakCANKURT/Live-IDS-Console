@@ -1,0 +1,10 @@
+123456
+password
+admin
+root
+toor
+letmein
+qwerty
+test123
+P@ssw0rd
+esp32test
