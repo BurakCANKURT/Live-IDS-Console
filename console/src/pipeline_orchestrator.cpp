@@ -991,7 +991,7 @@ void PipelineOrchestrator::Impl::ProducerLaunchWatcherLoop() {
         if (multiclass_det.model_ready.load()) break;
         // If the detector dies while loading (missing model files, import
         // error, ...) it will never report model_ready. Without this check
-        // the startup screen waited forever on "baslatiliyor...".
+        // the startup screen waited forever on "starting...".
         DWORD code = STILL_ACTIVE;
         if (multiclass_det.pi.hProcess &&
             GetExitCodeProcess(multiclass_det.pi.hProcess, &code) && code != STILL_ACTIVE) {
@@ -1007,7 +1007,7 @@ void PipelineOrchestrator::Impl::ProducerLaunchWatcherLoop() {
     }
     if (!running.load(std::memory_order_relaxed)) return; // shut down before models finished loading
 
-    // (B11) The user can hit "Yakalamayi Durdur" during the model warm-up
+    // (B11) The user can hit "Pause Capture" during the model warm-up
     // (the startup screen is up, but the toggle is reachable if this window
     // is ever shown earlier). Honour that instead of racing them by starting
     // tshark anyway -- ResumeCapture is what launches the producer then.
@@ -1027,8 +1027,8 @@ void PipelineOrchestrator::Impl::ProducerLaunchWatcherLoop() {
     } else {
         std::lock_guard<std::mutex> lock(mtx);
         state.last_error =
-            "Modeller hazir ama paket yakalama (tshark) baslatilamadi -- "
-            "logs\\producer_stderr.log kontrol edin.";
+            "Models are ready, but packet capture (tshark) failed to start -- "
+            "check logs\\producer_stderr.log.";
     }
 }
 
@@ -1209,7 +1209,7 @@ void PipelineOrchestrator::ResumeCapture() {
     // sleep, since this runs on the render thread.
     if (!impl_->multiclass_det.model_ready.load()) {
         std::lock_guard<std::mutex> lock(impl_->mtx);
-        impl_->state.last_error = "Model henuz yuklenmedi -- yakalama birazdan tekrar denenebilir.";
+        impl_->state.last_error = "Model not loaded yet -- capture can be retried shortly.";
         return;
     }
 
@@ -1219,7 +1219,7 @@ void PipelineOrchestrator::ResumeCapture() {
     std::lock_guard<std::mutex> lock(impl_->mtx);
     if (!ok) {
         impl_->state.last_error =
-            "Paket yakalama (tshark) yeniden baslatilamadi -- logs\\producer_stderr.log kontrol edin.";
+            "Packet capture (tshark) could not be restarted -- check logs\\producer_stderr.log.";
         return;
     }
     // (B8) New capture generation -> new reference point for a side-by-side
@@ -1369,7 +1369,7 @@ PipelineOrchestrator::RingSaveResult PipelineOrchestrator::SaveRingToFile(const 
 
     auto all = ListRingFiles(impl_->ring_dir);
     if (all.empty()) {
-        result.error = "capture_ring bos -- kaydedilecek yakalama dosyasi yok.";
+        result.error = "capture_ring is empty -- no capture files to save.";
         return result;
     }
 
@@ -1387,7 +1387,7 @@ PipelineOrchestrator::RingSaveResult PipelineOrchestrator::SaveRingToFile(const 
         if (f.start_ts >= impl_->start_time - 60.0) files.push_back(f);
 
     if (files.empty()) {
-        result.error = "Bu oturuma ait ring dosyasi yok -- yakalama henuz baslamamis olabilir.";
+        result.error = "No ring files for this session -- capture may not have started yet.";
         return result;
     }
 
@@ -1404,7 +1404,7 @@ PipelineOrchestrator::RingSaveResult PipelineOrchestrator::SaveRingToFile(const 
     // command-line limit, but bail out loudly rather than silently truncating
     // if RING_FILE_COUNT was raised a lot.
     if (cmd.size() > 30000) {
-        result.error = "Cok fazla ring dosyasi -- mergecap komut satiri sinirini asiyor.";
+        result.error = "Too many ring files -- exceeds the mergecap command-line limit.";
         return result;
     }
 

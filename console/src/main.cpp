@@ -78,7 +78,7 @@ BulkDownloadState g_bulk_download_unknown; // UNKNOWN/OOD alerts panel's "Downlo
                                             // messages don't bleed into each other and both
                                             // bulk exports can legitimately run back to back.
 
-// (B11) Background state for the capture toolbar's "Akisi Kaydet" button --
+// (B11) Background state for the capture toolbar's "Save Capture" button --
 // same one-worker-at-a-time pattern as BulkDownloadState. Separate from it
 // because the two can legitimately be wanted back to back (archive the whole
 // ring, then export the alert rows) and neither should cancel the other.
@@ -158,11 +158,11 @@ void TriggerBulkDownload(PipelineOrchestrator& orchestrator, const std::vector<A
         state->in_progress = false;
         char buf[128];
         if (res.total == 0)
-            state->result_msg = "Indirilecek paket yok (frame bilgisi olan uyari yok).";
+            state->result_msg = "No packets to download (no alert carries frame information).";
         else if (res.found == 0)
-            state->result_msg = "Hicbir paket bulunamadi/kaydedilemedi.";
+            state->result_msg = "No packets could be found or saved.";
         else {
-            std::snprintf(buf, sizeof(buf), "%d/%d paket kaydedildi.", res.found, res.total);
+            std::snprintf(buf, sizeof(buf), "%d/%d packets saved.", res.found, res.total);
             state->result_msg = buf;
         }
     });
@@ -218,7 +218,7 @@ void TriggerRingSave(PipelineOrchestrator& orchestrator, const std::wstring& rep
         g_ring_save.in_progress = false;
         if (res.ok) {
             char buf[128];
-            std::snprintf(buf, sizeof(buf), "Kaydedildi: %d ring dosyasi birlestirildi.", res.merged_files);
+            std::snprintf(buf, sizeof(buf), "Saved: merged %d ring files.", res.merged_files);
             g_ring_save.result_msg = buf;
         } else {
             g_ring_save.result_msg = res.error;
@@ -354,7 +354,7 @@ void HealthBadge(const DashboardState& st, const Fonts& fonts) {
         // discrepancy (see DashboardState::capture_start_wallclock).
         if (!st.capture_start_wallclock.empty()) {
             char sbuf[96];
-            std::snprintf(sbuf, sizeof(sbuf), "Yakalama baslangici: %s (Wireshark kiyasi icin referans)",
+            std::snprintf(sbuf, sizeof(sbuf), "Capture started: %s (reference for Wireshark comparison)",
                           st.capture_start_wallclock.c_str());
             ImGui::TextUnformatted(sbuf);
         }
@@ -532,8 +532,8 @@ void OpenPacketDetail(PipelineOrchestrator& orchestrator, const Alert& a) {
         g_detail.found = result.found;
         g_detail.detail_text = result.detail_text;
         g_detail.error = result.found ? std::string()
-            : "Paket bulunamadi -- capture_ring donen penceresinden rotasyonla silinmis olabilir "
-              "(varsayilan ~500MB/10 dosya; bkz. IDS_CAPTURE_RING_MB).";
+            : "Packet not found -- it may have been rotated out of the capture_ring window "
+              "(default ~500 MB / 10 files; see IDS_CAPTURE_RING_MB).";
         g_detail.loading = false;
     });
 }
@@ -555,10 +555,10 @@ void RecentAlertsTable(const std::vector<Alert>& alerts, PipelineOrchestrator& o
     ImGui::TableSetupColumn("Flow (Src -> Dst:Port)");
     ImGui::TableSetupColumn("Score", ImGuiTableColumnFlags_WidthFixed, 70);
     ImGui::TableSetupColumn("Severity", ImGuiTableColumnFlags_WidthFixed, 90);
-    // (B4) Satirin sonunda tek bir buton -- tiklaninca dogrudan tam sayfa
-    // paket detayini acar (bkz. DrawPacketDetailPage). Eskiden satira tiklamak
-    // satirin altina bir "PACKET INSPECTOR" paneli aciyordu; o ara-panel
-    // kaldirildi, tek giris noktasi bu buton oldu.
+    // (B4) A single button at the end of each row opens the full-page packet
+    // detail view directly (see DrawPacketDetailPage). Clicking a row used to
+    // open an inline "PACKET INSPECTOR" panel beneath it; that intermediate
+    // panel was removed and this button is now the only entry point.
     ImGui::TableSetupColumn("Detail", ImGuiTableColumnFlags_WidthFixed, 120);
     ImGui::TableSetupScrollFreeze(0, 1);
     ImGui::TableHeadersRow();
@@ -602,7 +602,7 @@ void RecentAlertsTable(const std::vector<Alert>& alerts, PipelineOrchestrator& o
         if (!has_frame) ImGui::BeginDisabled();
         ImGui::PushStyleColor(ImGuiCol_Button, theme::kAccent);
         char btn_label[48];
-        std::snprintf(btn_label, sizeof(btn_label), "Detay##pkt_%s_%d", table_id, i);
+        std::snprintf(btn_label, sizeof(btn_label), "Details##pkt_%s_%d", table_id, i);
         if (ImGui::Button(btn_label)) {
             OpenPacketDetail(orchestrator, a);
         }
@@ -711,7 +711,7 @@ bool SectionLabelWithButton(const char* text, const char* btn_label, bool btn_en
     return clicked;
 }
 
-// Renders the "Xxx paket indiriliyor..." / "N/M paket kaydedildi." line right
+// Renders the "Downloading X packets..." / "N/M packets saved." line right
 // under a panel's SectionLabelWithButton -- shared by the attacks and
 // UNKNOWN/OOD panels, each with its own BulkDownloadState instance so their
 // progress/result text never bleeds into the other panel.
@@ -725,7 +725,7 @@ void DrawBulkDownloadStatus(BulkDownloadState& bulk_state) {
     }
     if (bulk_in_progress || !bulk_msg.empty()) {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::kTextDim);
-        ImGui::TextUnformatted(bulk_in_progress ? "Tum paketler indiriliyor..." : bulk_msg.c_str());
+        ImGui::TextUnformatted(bulk_in_progress ? "Downloading all packets..." : bulk_msg.c_str());
         ImGui::PopStyleColor();
     }
 }
@@ -744,7 +744,7 @@ void CaptureControls(const DashboardState& st, PipelineOrchestrator& orchestrato
     bool paused = st.capture_paused;
 
     ImGui::PushStyleColor(ImGuiCol_Button, paused ? theme::kSuccess : theme::kDanger);
-    if (ImGui::Button(paused ? "Yakalamayi Surdur" : "Yakalamayi Durdur", ImVec2(190, 0))) {
+    if (ImGui::Button(paused ? "Resume Capture" : "Pause Capture", ImVec2(190, 0))) {
         // Both calls are synchronous but bounded (a process kill plus a join
         // on a thread that unblocks as soon as the pipe breaks) -- see
         // PipelineOrchestrator::PauseCapture's header comment.
@@ -754,9 +754,9 @@ void CaptureControls(const DashboardState& st, PipelineOrchestrator& orchestrato
     ImGui::PopStyleColor();
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip(
-            "Sadece paket yakalamayi (tshark) durdurur/baslatir.\n"
-            "Tespit modeli, Mongo yazimi ve ekrandaki tum veriler calismaya devam eder.\n"
-            "Durdurmak, capture_ring'in uzerine yazilmasini engeller.");
+            "Stops/starts packet capture (tshark) only.\n"
+            "The detection model, Mongo logging and all on-screen data keep running.\n"
+            "Stopping prevents the capture_ring from being overwritten.");
     }
 
     ImGui::SameLine();
@@ -770,21 +770,21 @@ void CaptureControls(const DashboardState& st, PipelineOrchestrator& orchestrato
     }
 
     if (saving) ImGui::BeginDisabled();
-    if (ImGui::Button("Akisi Kaydet (.pcapng)", ImVec2(200, 0)))
+    if (ImGui::Button("Save Capture (.pcapng)", ImVec2(200, 0)))
         TriggerRingSave(orchestrator, repo_root);
     if (saving) ImGui::EndDisabled();
     if (ImGui::IsItemHovered()) {
         ImGui::SetTooltip(
-            "capture_ring'deki TUM yakalama dosyalarini tek bir .pcapng'de birlestirir\n"
-            "(mergecap). Varsayilan konum: captures/\n"
-            "Once 'Yakalamayi Durdur' demek onerilir -- aksi halde en yeni ring\n"
-            "dosyasi yazilmaya devam ettigi icin sonu eksik kalabilir.");
+            "Merges ALL capture files in the capture_ring into a single .pcapng\n"
+            "(mergecap). Default location: captures/\n"
+            "Clicking 'Pause Capture' first is recommended -- otherwise the newest ring\n"
+            "file is still being written, so its tail may be incomplete.");
     }
 
     ImGui::SameLine(0, 16);
     if (saving) {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::kWarning);
-        ImGui::TextUnformatted("Birlestiriliyor...");
+        ImGui::TextUnformatted("Merging...");
         ImGui::PopStyleColor();
     } else if (!save_msg.empty()) {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::kTextDim);
@@ -792,7 +792,7 @@ void CaptureControls(const DashboardState& st, PipelineOrchestrator& orchestrato
         ImGui::PopStyleColor();
     } else if (paused) {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::kWarning);
-        ImGui::TextUnformatted("Yakalama durduruldu -- ring dosyalari korunuyor.");
+        ImGui::TextUnformatted("Capture stopped -- ring files are preserved.");
         ImGui::PopStyleColor();
     }
 }
@@ -934,7 +934,7 @@ void DrawDashboard(const DashboardState& st, PipelineOrchestrator& orchestrator,
 
         ImGui::PushStyleColor(ImGuiCol_ChildBg, theme::kPanel);
         ImGui::BeginChild("alerts_panel", ImVec2(third_w, 0), true);
-        if (SectionLabelWithButton("RECENT ALERTS", "Tumunu Indir (.pcapng)", !st.recent_alerts.empty()))
+        if (SectionLabelWithButton("RECENT ALERTS", "Download All (.pcapng)", !st.recent_alerts.empty()))
             TriggerBulkDownload(orchestrator, st.recent_alerts, g_bulk_download, L"all_alerts.pcapng");
         DrawBulkDownloadStatus(g_bulk_download);
         RecentAlertsTable(st.recent_alerts, orchestrator, fonts, "recent_alerts");
@@ -948,7 +948,7 @@ void DrawDashboard(const DashboardState& st, PipelineOrchestrator& orchestrator,
         // fed from recent_unknown_alerts instead of recent_alerts.
         ImGui::PushStyleColor(ImGuiCol_ChildBg, theme::kPanel);
         ImGui::BeginChild("unknown_panel", ImVec2(0, 0), true);
-        if (SectionLabelWithButton("RECENT UNKNOWN (OOD)", "Tumunu Indir (.pcapng)", !st.recent_unknown_alerts.empty()))
+        if (SectionLabelWithButton("RECENT UNKNOWN (OOD)", "Download All (.pcapng)", !st.recent_unknown_alerts.empty()))
             TriggerBulkDownload(orchestrator, st.recent_unknown_alerts, g_bulk_download_unknown, L"all_unknown.pcapng");
         DrawBulkDownloadStatus(g_bulk_download_unknown);
         RecentAlertsTable(st.recent_unknown_alerts, orchestrator, fonts, "recent_unknown");
@@ -1006,14 +1006,14 @@ void DrawStartupScreen(const DashboardState& st, const Fonts& fonts) {
 
     if (!st.reachable && !st.last_error.empty()) {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::kDanger);
-        ImGui::TextWrapped("Pipeline baslatilamadi: %s", st.last_error.c_str());
+        ImGui::TextWrapped("Pipeline failed to start: %s", st.last_error.c_str());
         ImGui::PopStyleColor();
     } else {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::kTextDim);
         ImGui::TextWrapped(
-            "Lutfen bekleyin -- yakalama basladi, tespit modelleri yukleniyor. "
-            "Bu ekran kapaninca paketler tablolara akmaya baslar (makineye "
-            "bagli olarak ~30-40 saniye surebilir).");
+            "Please wait... Capture has started, detection models are loading. "
+            "Once this screen closes, packets start flowing into the tables (this can "
+            "take ~30-40 seconds depending on the machine).");
         ImGui::PopStyleColor();
     }
 
@@ -1026,19 +1026,19 @@ void DrawStartupScreen(const DashboardState& st, const Fonts& fonts) {
         ImGui::SameLine(260);
         if (!running) {
             ImGui::PushStyleColor(ImGuiCol_Text, theme::kWarning);
-            ImGui::TextUnformatted("baslatiliyor...");
+            ImGui::TextUnformatted("starting...");
         } else if (age < 0) {
             ImGui::PushStyleColor(ImGuiCol_Text, theme::kWarning);
-            ImGui::TextUnformatted("surec ayakta, model yukleniyor...");
+            ImGui::TextUnformatted("process up, loading model...");
         } else {
             ImGui::PushStyleColor(ImGuiCol_Text, theme::kSuccess);
-            ImGui::TextUnformatted("hazir");
+            ImGui::TextUnformatted("ready");
         }
         ImGui::PopStyleColor();
     };
-    StatusRow("Paket Yakalama (tshark):", st.health.producer.running,
+    StatusRow("Packet Capture (tshark):", st.health.producer.running,
                st.health.producer.last_event_age_seconds);
-    StatusRow("Coklu-Sinif Tespit Modeli:", st.health.multiclass_detector.running,
+    StatusRow("Multiclass Detection Model:", st.health.multiclass_detector.running,
                st.health.multiclass_detector.last_event_age_seconds);
 
     ImGui::EndChild();
@@ -1061,7 +1061,7 @@ void DrawPacketDetailPage(PipelineOrchestrator& orchestrator, const Fonts& fonts
 
     const Alert& a = g_detail.alert;
 
-    if (ImGui::Button("<- Ana Panele Don")) {
+    if (ImGui::Button("<- Back to Dashboard")) {
         // Both workers are done or nearly done by the time a user reaches
         // for "back" (lookup is usually sub-second); joining here is what
         // makes it safe to overwrite g_detail from OpenPacketDetail() the
@@ -1079,14 +1079,14 @@ void DrawPacketDetailPage(PipelineOrchestrator& orchestrator, const Fonts& fonts
     ImGui::Separator();
     ImGui::Spacing();
 
-    ImGui::Text("Zaman: %s   |   Durum: %s   |   Skor: %.4f   |   Onem: %s",
+    ImGui::Text("Time: %s   |   Status: %s   |   Score: %.4f   |   Severity: %s",
                 a.timestamp.c_str(), a.status.c_str(), a.score, a.severity.c_str());
     if (a.has_dst_port)
-        ImGui::Text("Akis: %s -> %s:%d", a.src_ip.c_str(), a.dst_ip.c_str(), a.dst_port);
+        ImGui::Text("Flow: %s -> %s:%d", a.src_ip.c_str(), a.dst_ip.c_str(), a.dst_port);
     else
-        ImGui::Text("Akis: %s -> %s", a.src_ip.c_str(), a.dst_ip.c_str());
+        ImGui::Text("Flow: %s -> %s", a.src_ip.c_str(), a.dst_ip.c_str());
     const std::string& label = !a.predicted_class.empty() ? a.predicted_class : a.attack_type;
-    ImGui::Text("Tahmin: %s   |   Tetikleyen: %s", DisplayLabel(label),
+    ImGui::Text("Prediction: %s   |   Triggered by: %s", DisplayLabel(label),
                 a.alert_source.empty() ? "-" : a.alert_source.c_str());
 
     ImGui::Spacing();
@@ -1108,7 +1108,7 @@ void DrawPacketDetailPage(PipelineOrchestrator& orchestrator, const Fonts& fonts
                                                      snap.src_ip, snap.dst_ip, out_path);
                 std::lock_guard<std::mutex> lock(g_detail.mtx);
                 g_detail.download_in_progress = false;
-                g_detail.download_result_msg = ok ? "Kaydedildi." : "Paket bulunamadi / kaydedilemedi.";
+                g_detail.download_result_msg = ok ? "Saved." : "Packet not found / could not be saved.";
             });
         }
     }
@@ -1140,7 +1140,7 @@ void DrawPacketDetailPage(PipelineOrchestrator& orchestrator, const Fonts& fonts
     }
     if (dl_in_progress) {
         ImGui::SameLine();
-        ImGui::TextUnformatted("(indiriliyor...)");
+        ImGui::TextUnformatted("(downloading...)");
     } else if (!dl_msg.empty()) {
         ImGui::SameLine();
         ImGui::TextUnformatted(dl_msg.c_str());
@@ -1151,10 +1151,10 @@ void DrawPacketDetailPage(PipelineOrchestrator& orchestrator, const Fonts& fonts
     ImGui::Spacing();
 
     if (loading) {
-        ImGui::TextUnformatted("Paket araniyor (capture_ring taraniyor)...");
+        ImGui::TextUnformatted("Looking up packet (scanning capture_ring)...");
     } else if (!found) {
         ImGui::PushStyleColor(ImGuiCol_Text, theme::kWarning);
-        ImGui::TextUnformatted(error.empty() ? "Paket bulunamadi." : error.c_str());
+        ImGui::TextUnformatted(error.empty() ? "Packet not found." : error.c_str());
         ImGui::PopStyleColor();
     } else {
         // tshark's own -V (protocol tree) + -x (hex+ASCII) output for this
@@ -1214,26 +1214,26 @@ int main() {
     // the log files under console/logs explain why).
     PipelineOrchestrator orchestrator;
 #ifdef IDS_R26_PHASE2_SOFTVOTE
-    // (R26 Faz 2, 2026-08-14) CANLI A/B BUILD'I -- yalnizca ayri isimli
-    // `ids_dashboard_r26_phase2_softvote.exe` hedefinde tanimli. VARSAYILAN
-    // `ids_dashboard` hedefinde bu makro TANIMSIZ, dolayisiyla asagidaki blok
-    // DERLENMEZ ve uretim binary'si bit-duzeyinde degismez.
+    // (R26 Phase 2, 2026-08-14) LIVE A/B BUILD -- defined only in the
+    // separately named `ids_dashboard_r26_phase2_softvote.exe` target. In the
+    // DEFAULT `ids_dashboard` target this macro is UNDEFINED, so the block below
+    // is NOT COMPILED and the production binary does not change at the bit level.
     //
-    // NEDEN BURADA (env degiskeni) VE C++'ta BASKA BIR SEY DEGIL: dedektor
-    // Python surecleri SpawnDetector -> LaunchProcess -> CreateProcessW ile
-    // lpEnvironment=nullptr olarak baslatilir, yani EBEVEYNIN ORTAMINI
-    // DEVRALIRLAR. Bayragi burada set etmek, process_pcap_multiclass.py'nin
-    // os.environ["MC_R26_SOFTVOTE"] okumasina birebir yeter -- orchestrator
-    // veya Python tarafinda HICBIR degisiklik gerekmez.
+    // WHY HERE (an env variable) AND NOTHING ELSE IN C++: the detector Python
+    // processes are started via SpawnDetector -> LaunchProcess -> CreateProcessW
+    // with lpEnvironment=nullptr, so they INHERIT THE PARENT'S ENVIRONMENT.
+    // Setting the flag here is exactly enough for process_pcap_multiclass.py's
+    // os.environ["MC_R26_SOFTVOTE"] read -- NO change is needed on the
+    // orchestrator or the Python side.
     //
-    // Bunu shell'den `set MC_R26_SOFTVOTE=1` ile yapmak da mumkundu; binary'ye
-    // gomulmesinin sebebi ARTEFAKTIN KENDINI TANIMLAMASI: bu .exe cift
-    // tiklandiginda da soft-vote'lu calisir, "hangi ortamda baslatildi"
-    // belirsizligi kalmaz (2026-08-06'daki ids_dashboard_r26_committee.exe
-    // ayrimiyla ayni gerekce).
+    // This could also be done from the shell with `set MC_R26_SOFTVOTE=1`; the
+    // reason it is baked into the binary is SELF-IDENTIFICATION OF THE ARTIFACT:
+    // this .exe also runs soft-vote when double-clicked, leaving no ambiguity
+    // about "which environment it was started in" (same rationale as the
+    // ids_dashboard_r26_committee.exe split on 2026-08-06).
     _wputenv_s(L"MC_R26_SOFTVOTE", L"1");
 #endif
-    // (B11) Kept in a local because the capture toolbar's "Akisi Kaydet"
+    // (B11) Kept in a local because the capture toolbar's "Save Capture"
     // button needs it too, to default the save dialog into captures/.
     const std::wstring repo_root = ResolveRepoRoot();
     orchestrator.start(repo_root, ResolveInterface());

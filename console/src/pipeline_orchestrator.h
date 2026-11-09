@@ -127,7 +127,7 @@ struct DashboardState {
     std::string capture_start_wallclock;
 
     // (B11) True while the user has stopped live capture from the UI
-    // ("Yakalamayi Durdur"). Only the producer subtree (tshark) is gone --
+    // ("Pause Capture"). Only the producer subtree (tshark) is gone --
     // the detector, Mongo writer and every UI aggregate stay alive and keep
     // showing what was already collected. Exists so the health badge can say
     // "PAUSED" instead of reporting the (deliberately) dead producer as a
@@ -220,11 +220,11 @@ public:
 
     // (B11) Result of archiving the ring buffer. `merged_files` is how many
     // capture_ring pcapng files went into the output, so the UI can say
-    // "7 dosya birlestirildi" rather than a bare success/failure.
+    // "merged 7 files" rather than a bare success/failure.
     struct RingSaveResult {
         bool ok = false;
         int merged_files = 0;
-        std::string error; // human-readable (Turkish), empty when ok
+        std::string error; // human-readable (English), empty when ok
     };
 
     // Merges every capture_ring pcapng currently on disk into one standalone
@@ -268,7 +268,7 @@ public:
 
     // (B5) Result of a bulk export -- "found" may be less than "total" if some
     // alerts predate B2 (no frame_number) or their packet already rotated out
-    // of the ring, so the UI can report "38/50 paket kaydedildi" rather than a
+    // of the ring, so the UI can report "38/50 packets saved" rather than a
     // bare pass/fail.
     struct BulkDownloadResult {
         int total = 0;
